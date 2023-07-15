@@ -12,17 +12,6 @@ from networkx.algorithms.centrality.betweenness import (
 )
 __all__ = ["betweenness_centrality"]
 
-"""Helper to interface between graph types"""
-def _convert(G):
-    if isinstance(G, ParallelMultiDiGraph):
-        I = ParallelMultiDiGraph.to_networkx(G)
-    if isinstance(G, ParallelMultiGraph):
-        I = ParallelMultiGraph.to_networkx(G)
-    if isinstance(G, ParallelDiGraph):
-        I = ParallelDiGraph.to_networkx(G)
-    if isinstance(G, ParallelGraph):
-        I = ParallelGraph.to_networkx(G)
-    return I
 
 @py_random_state(5)
 def betweenness_centrality(
@@ -100,8 +89,7 @@ def betweenness_centrality(
        Parallel Betweenness Centrality. NetworkX documentation.
        Available at: https://networkx.org/documentation/stable/auto_examples/algorithms/plot_parallel_betweenness.html
        Accessed on June 26, 2023.
-    """    
-    I = _convert(G)
+    """
     if k is None:
         nodes = G.nodes
     else:
@@ -110,8 +98,8 @@ def betweenness_centrality(
     num_chunks = max(len(nodes) // total_cores, 1)
     node_chunks = list(chunks(nodes, num_chunks))
     bt_cs = Parallel(n_jobs=total_cores)(
-        delayed(betweenness_centrality_node_subset)(
-            I,
+        delayed(_betweenness_centrality_node_subset)(
+            G,
             chunk,
             weight,
             endpoints,
@@ -129,7 +117,7 @@ def betweenness_centrality(
         bt_c,
         len(G),
         normalized=normalized,
-        directed=I.is_directed(),
+        directed=G.is_directed(),
         k=k,
         endpoints=endpoints,
     )
@@ -137,14 +125,14 @@ def betweenness_centrality(
 
 
 
-def betweenness_centrality_node_subset(G, nodes, weight=None, endpoints=False):
+def _betweenness_centrality_node_subset(G, nodes, weight=None, endpoints=False):
     betweenness = dict.fromkeys(G, 0.0)
     for s in nodes:
         # single source shortest paths
         if weight is None:  # use BFS
-            S, P, sigma, _ = _single_source_shortest_path_basic(G, s)
+            S, P, sigma, _ = _single_source_shortest_path_basic.__wrapped__(G, s)
         else:  # use Dijkstra's algorithm
-            S, P, sigma, _ = _single_source_dijkstra_path_basic(G, s, weight)
+            S, P, sigma, _ = _single_source_dijkstra_path_basic.__wrapped__(G, s, weight)
         # accumulation
         if endpoints:
             betweenness, delta = _accumulate_endpoints(betweenness, S, P, sigma, s)
